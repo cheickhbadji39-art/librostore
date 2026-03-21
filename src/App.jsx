@@ -1,4 +1,5 @@
 import { useState, useEffect, useReducer, createContext, useContext, useRef, useCallback } from "react";
+import { supabase } from './supabase.js'
 
 // ─── CATALOGUE COMPLET ──────────────────────────────────────────────────────
 const BOOKS_DB = [
@@ -909,12 +910,31 @@ function Checkout() {
 }
 
 function Login() {
-  const { state, dispatch } = useContext(AppContext);
-  const [email, setEmail] = useState(""); const [pass, setPass] = useState(""); const [err, setErr] = useState("");
-  const login = () => {
-    const u = state.users.find(u => u.email === email && u.password === pass);
-    u ? dispatch({ type: "LOGIN", payload: u }) : setErr("Identifiants incorrects.");
+  const { dispatch } = useContext(AppContext);
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [name, setName] = useState("");
+  const [isSignup, setIsSignup] = useState(false);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+
+  const handleAuth = async () => {
+    setLoading(true); setErr("");
+    if (isSignup) {
+      const { data, error } = await supabase.auth.signUp({ email, password: pass });
+      if (error) { setErr(error.message); setLoading(false); return; }
+      await supabase.from("profiles").insert({ id: data.user.id, email, name, role: "user" });
+      dispatch({ type: "LOGIN", payload: { id: data.user.id, name, email, role: "user", avatar: name[0] } });
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) { setErr("Email ou mot de passe incorrect."); setLoading(false); return; }
+      const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
+      dispatch({ type: "LOGIN", payload: { id: data.user.id, name: profile?.name || email, email, role: profile?.role || "user", avatar: (profile?.name || email)[0] } });
+    }
+    setLoading(false);
   };
+
   return (
     <div className="auth-wrap">
       <div className="auth-card">
@@ -923,30 +943,43 @@ function Login() {
           <div style={{ color: "rgba(255,255,255,.35)", fontSize: ".8rem", marginTop: ".25rem" }}>Votre librairie de référence</div>
         </div>
         <div className="auth-body">
-          <div className="auth-title">Connexion</div>
-          <div className="auth-sub">Bon retour parmi nous</div>
-          {["email","password"].map(t => (
-            <div key={t} className="form-grp" style={{ marginBottom: "1rem" }}>
-              <label className="form-lbl">{t === "email" ? "Adresse email" : "Mot de passe"}</label>
-              <input className="form-inp" type={t} value={t === "email" ? email : pass}
-                onChange={e => t === "email" ? setEmail(e.target.value) : setPass(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && login()}
-                placeholder={t === "email" ? "votre@email.com" : "••••••••"} />
+          <div className="auth-title">{isSignup ? "Créer un compte" : "Connexion"}</div>
+          <div className="auth-sub">{isSignup ? "Rejoignez LibroStore" : "Bon retour parmi nous"}</div>
+          {isSignup && (
+            <div className="form-grp" style={{ marginBottom: "1rem" }}>
+              <label className="form-lbl">Prénom et nom</label>
+              <input className="form-inp" value={name} onChange={e => setName(e.target.value)} placeholder="Votre nom complet" />
             </div>
-          ))}
+          )}
+          <div className="form-grp" style={{ marginBottom: "1rem" }}>
+            <label className="form-lbl">Email</label>
+            <input className="form-inp" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="votre@email.com" />
+          </div>
+          <div className="form-grp" style={{ marginBottom: "1rem" }}>
+  <label className="form-lbl">Mot de passe</label>
+  <div style={{ position: "relative" }}>
+    <input className="form-inp" type={showPass ? "text" : "password"} value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handleAuth()} style={{ paddingRight: "40px" }} />
+    <button type="button" onClick={() => setShowPass(!showPass)}
+      style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "1rem" }}>
+      {showPass ? "🙈" : "👁️"}
+    </button>
+  </div>
+</div>
           {err && <div style={{ color: "#9b2226", fontSize: ".82rem", marginBottom: ".75rem" }}>{err}</div>}
-          <button className="btn-gold" style={{ width: "100%", justifyContent: "center", padding: "13px" }} onClick={login}>Se connecter</button>
-          <div className="demo-box">
-            <strong>Comptes de démonstration :</strong><br />
-            👑 Admin : aminata@example.com / pass123<br />
-            👤 Client : moussa@example.com / pass123
+          <button className="btn-gold" style={{ width: "100%", justifyContent: "center", padding: "13px", opacity: loading ? .7 : 1 }} onClick={handleAuth} disabled={loading}>
+            {loading ? "Chargement..." : isSignup ? "Créer mon compte" : "Se connecter"}
+          </button>
+          <div style={{ textAlign: "center", marginTop: "1rem", fontSize: ".85rem", color: "var(--muted)" }}>
+            {isSignup ? "Déjà un compte ?" : "Pas encore de compte ?"}
+            <button style={{ background: "none", border: "none", color: "var(--gold)", fontWeight: 700, marginLeft: "6px", cursor: "pointer" }} onClick={() => setIsSignup(!isSignup)}>
+              {isSignup ? "Se connecter" : "S'inscrire"}
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
 function Orders() {
   const { state, dispatch } = useContext(AppContext);
   if (!state.user) return <Login />;
