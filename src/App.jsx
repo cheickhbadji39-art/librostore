@@ -23,16 +23,9 @@ const BOOKS_DB = [
   { id: 16, title: "L'Alchimiste", author: "Paulo Coelho", price: 10.90, category: "Philosophie", origin: "Brésil", cover: "", emoji: "⭐", rating: 4.7, stock: 30, description: "Santiago, jeune berger andalou, part à la recherche de son trésor personnel à travers le désert du Sahara. Une fable philosophique sur le destin et l'écoute de son cœur.", sold: 1100, reviews: [{ user: "Khadija M.", note: 5, text: "Ce livre m'a donné le courage de tout changer." }], tags: ["voyage", "destin", "rêve"] },
 ];
 
-const USERS_DB = [
-  { id: 1, name: "Aminata Diallo", email: "aminata@example.com", password: "pass123", role: "admin", joined: "2024-01-15", avatar: "A" },
-  { id: 2, name: "Moussa Ndiaye", email: "moussa@example.com", password: "pass123", role: "user", joined: "2024-06-20", avatar: "M" },
-];
+const USERS_DB = [];
 
-const ORDERS_DB = [
-  { id: "CMD-001", userId: 2, date: "2025-11-10", status: "livré", total: "36.40", items: [{ bookId: 1, qty: 1 }, { bookId: 8, qty: 1 }] },
-  { id: "CMD-002", userId: 2, date: "2026-01-18", status: "livré", total: "14.90", items: [{ bookId: 10, qty: 1 }] },
-  { id: "CMD-003", userId: 2, date: "2026-03-05", status: "en cours", total: "24.40", items: [{ bookId: 2, qty: 1 }, { bookId: 4, qty: 1 }] },
-];
+const ORDERS_DB = [];
 
 // ─── CONTEXT ────────────────────────────────────────────────────────────────
 const AppContext = createContext();
@@ -1174,10 +1167,22 @@ function Admin() {
 
       {tab === "orders" && (
         <table className="table">
-          <thead><tr><th>ID</th><th>Client</th><th>Date</th><th>Total</th><th>Statut</th></tr></thead>
+          <thead><tr><th>ID</th><th>Client</th><th>Date</th><th>Total</th><th>Livres</th><th>Statut</th></tr></thead>
           <tbody>{state.orders.map(o => {
             const u = state.users.find(u => u.id === o.userId);
-            return <tr key={o.id}><td style={{ fontWeight: 700 }}>{o.id}</td><td>{u?.name}</td><td style={{ color: "var(--muted)" }}>{o.date}</td><td style={{ fontWeight: 700 }}>{o.total} €</td><td><span className={`oc-status s-${o.status.replace(" ","-")}`}>{o.status}</span></td></tr>;
+           return <tr key={o.id}>
+  <td style={{ fontWeight: 700 }}>{o.id}</td>
+  <td>{u?.name}</td>
+  <td style={{ color: "var(--muted)" }}>{o.date}</td>
+  <td style={{ fontWeight: 700 }}>{o.total} €</td>
+  <td>
+    {o.items?.map(i => {
+      const book = state.books.find(b => b.id === i.bookId);
+      return book ? <div key={i.bookId} style={{ fontSize: ".78rem" }}>{book.emoji} {book.title} ×{i.qty}</div> : null;
+    })}
+  </td>
+  <td><span className={`oc-status s-${o.status?.replace(" ","-")}`}>{o.status}</span></td>
+</tr>
           })}</tbody>
         </table>
       )}
