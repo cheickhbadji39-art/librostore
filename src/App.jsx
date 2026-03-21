@@ -61,9 +61,22 @@ function reducer(state, { type, payload }) {
     }
     case "CLEAR_CART": return { ...state, cart: [] };
     case "PLACE_ORDER": {
-      const o = { id: `CMD-00${state.orders.length + 1}`, userId: state.user.id, date: new Date().toISOString().split("T")[0], status: "en cours", total: payload, items: state.cart.map(i => ({ bookId: i.id, qty: i.qty })) };
-      return { ...state, orders: [...state.orders, o], cart: [], page: "orders", toast: { msg: "Commande confirmée ! Merci 🎉", type: "success" } };
-    }
+  const o = {
+    id: `CMD-00${state.orders.length + 1}`,
+    userId: state.user.id,
+    date: new Date().toISOString().split("T")[0],
+    status: "en cours",
+    total: payload,
+    items: state.cart.map(i => ({ bookId: i.id, qty: i.qty }))
+  };
+  supabase.from("orders").insert({
+    user_id: state.user?.id,
+    total: parseFloat(payload),
+    status: "en cours",
+    items: state.cart.map(i => ({ bookId: i.id, qty: i.qty }))
+  }).then(({ error }) => { if (error) console.error("Erreur order:", error); });
+  return { ...state, orders: [...state.orders, o], cart: [], page: "orders", toast: { msg: "Commande confirmée ! Merci 🎉", type: "success" } };
+}
     case "UPDATE_BOOK": return { ...state, books: state.books.map(b => b.id === payload.id ? payload : b) };
     case "DELETE_BOOK": return { ...state, books: state.books.filter(b => b.id !== payload) };
     case "ADD_BOOK": return { ...state, books: [...state.books, { ...payload, id: Date.now(), sold: 0, reviews: [], tags: [] }] };
@@ -819,6 +832,7 @@ function Checkout() {
   const total = cartTotal(state.cart);
   const shipping = total >= 35 ? 0 : 3.90;
   const grand = fmt(total + shipping);
+  const [payMethod, setPayMethod] = useState("");
 
   if (!state.user) return <Login />;
 
@@ -875,36 +889,82 @@ function Checkout() {
       )}
 
       {step === 1 && (
-        <div className="checkout-card fade-up">
-          <h3>Informations de paiement</h3>
-          <div className="card-icons">
-            {["VISA","MC","Amex","PayPal"].map(c => <div key={c} className="card-icon">{c}</div>)}
-          </div>
-          <div className="form-grid">
-            <div className="form-grp full">
-              <label className="form-lbl">Numéro de carte</label>
-              <input className="form-inp" value={form.card} onChange={e => upd("card", e.target.value.replace(/\D/g,"").slice(0,16).replace(/(.{4})/g,"$1 ").trim())} placeholder="0000 0000 0000 0000" maxLength={19} />
-            </div>
-            <div className="form-grp">
-              <label className="form-lbl">Date d'expiration</label>
-              <input className="form-inp" value={form.expiry} onChange={e => upd("expiry", e.target.value)} placeholder="MM / AA" maxLength={7} />
-            </div>
-            <div className="form-grp">
-              <label className="form-lbl">CVV</label>
-              <input className="form-inp" value={form.cvv} onChange={e => upd("cvv", e.target.value.replace(/\D/g,"").slice(0,3))} placeholder="•••" type="password" maxLength={3} />
-            </div>
-          </div>
-          <div className="security-badge">🔒 <span>Paiement 100% sécurisé — Données chiffrées SSL</span></div>
-          <div style={{ background: "var(--cream)", borderRadius: "var(--r-sm)", padding: "1rem", marginTop: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".88rem", color: "var(--muted)" }}>
-              <span>Total à débiter</span>
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--ink)", fontSize: "1.1rem" }}>{grand} €</span>
-            </div>
-          </div>
-          <button className="pay-btn" onClick={() => setStep(2)}>🔒 Payer {grand} € maintenant</button>
-          <button className="btn-ghost" style={{ width: "100%", justifyContent: "center", marginTop: ".5rem", border: "none", color: "var(--muted)", fontSize: ".82rem" }} onClick={() => setStep(0)}>← Modifier la livraison</button>
+  <div className="checkout-card fade-up">
+    <h3>Choisir le moyen de paiement</h3>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+      {[
+        { id: "wave", label: "Wave", color: "#1DC8FF", bg: "#E8F9FF", textColor: "#0099CC", desc: "Paiement instantané", logo: "W" },
+{ id: "orange", label: "Orange Money", color: "#FF6600", bg: "#FFF3E0", textColor: "#FF6600", desc: "Orange Money Sénégal", logo: "OM" },
+{ id: "free", label: "Free Money", color: "#CC0000", bg: "#FFE8E8", textColor: "#CC0000", desc: "Free Money Sénégal", logo: "FM" },
+{ id: "card", label: "Carte bancaire", color: "#1A1F71", bg: "#E8EAF6", textColor: "#1A1F71", desc: "Visa, Mastercard, Amex", logo: "💳" },
+      ].map(m => (
+        <div key={m.id} onClick={() => setPayMethod(m.id)}
+          style={{ border: `2px solid ${payMethod === m.id ? m.color : "var(--border)"}`, borderRadius: "var(--r)", padding: "1.25rem", cursor: "pointer", transition: "var(--transition)", background: payMethod === m.id ? `${m.color}10` : "white" }}>
+          <div style={{ fontSize: "1.8rem", marginBottom: ".4rem" }}>{<div style={{ width: "48px", height: "48px", borderRadius: "8px", background: m.color, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: m.logo.length > 1 ? ".8rem" : "1.4rem", marginBottom: ".5rem" }}>
+  {m.logo}
+</div>}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: ".95rem" }}>{m.label}</div>
+          <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>{m.desc}</div>
         </div>
-      )}
+      ))}
+    </div>
+
+    {payMethod === "wave" && (
+      <div style={{ background: "#1DC8FF10", border: "1.5px solid #1DC8FF40", borderRadius: "var(--r)", padding: "1.25rem", marginBottom: "1rem" }}>
+        <div style={{ fontWeight: 700, marginBottom: ".5rem" }}>🌊 Paiement Wave</div>
+        <div style={{ fontSize: ".85rem", color: "var(--muted)", marginBottom: ".75rem" }}>Entrez votre numéro Wave pour recevoir la demande de paiement</div>
+        <input className="form-inp" placeholder="ex: 77 123 45 67" value={form.phone} onChange={e => upd("phone", e.target.value)} />
+      </div>
+    )}
+    {payMethod === "orange" && (
+      <div style={{ background: "#FF660010", border: "1.5px solid #FF660040", borderRadius: "var(--r)", padding: "1.25rem", marginBottom: "1rem" }}>
+        <div style={{ fontWeight: 700, marginBottom: ".5rem" }}>🟠 Orange Money</div>
+        <div style={{ fontSize: ".85rem", color: "var(--muted)", marginBottom: ".75rem" }}>Entrez votre numéro Orange Money</div>
+        <input className="form-inp" placeholder="ex: 77 123 45 67" value={form.phone} onChange={e => upd("phone", e.target.value)} />
+      </div>
+    )}
+    {payMethod === "free" && (
+      <div style={{ background: "#E2001A10", border: "1.5px solid #E2001A40", borderRadius: "var(--r)", padding: "1.25rem", marginBottom: "1rem" }}>
+        <div style={{ fontWeight: 700, marginBottom: ".5rem" }}>🔴 Free Money</div>
+        <div style={{ fontSize: ".85rem", color: "var(--muted)", marginBottom: ".75rem" }}>Entrez votre numéro Free Money</div>
+        <input className="form-inp" placeholder="ex: 76 123 45 67" value={form.phone} onChange={e => upd("phone", e.target.value)} />
+      </div>
+    )}
+    {payMethod === "card" && (
+      <div style={{ marginBottom: "1rem" }}>
+        <div className="card-icons" style={{ marginBottom: "1rem" }}>
+          {["VISA","MC","Amex"].map(c => <div key={c} className="card-icon">{c}</div>)}
+        </div>
+        <div className="form-grid">
+          <div className="form-grp full">
+            <label className="form-lbl">Numéro de carte</label>
+            <input className="form-inp" value={form.card} onChange={e => upd("card", e.target.value.replace(/\D/g,"").slice(0,16).replace(/(.{4})/g,"$1 ").trim())} placeholder="0000 0000 0000 0000" maxLength={19} />
+          </div>
+          <div className="form-grp">
+            <label className="form-lbl">Expiration</label>
+            <input className="form-inp" value={form.expiry} onChange={e => upd("expiry", e.target.value)} placeholder="MM / AA" maxLength={7} />
+          </div>
+          <div className="form-grp">
+            <label className="form-lbl">CVV</label>
+            <input className="form-inp" value={form.cvv} onChange={e => upd("cvv", e.target.value.replace(/\D/g,"").slice(0,3))} placeholder="•••" type="password" maxLength={3} />
+          </div>
+        </div>
+      </div>
+    )}
+    <div className="security-badge">🔒 <span>Paiement 100% sécurisé — SSL</span></div>
+    <div style={{ background: "var(--cream)", borderRadius: "var(--r-sm)", padding: "1rem", marginTop: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".88rem" }}>
+        <span style={{ color: "var(--muted)" }}>Total à payer</span>
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.1rem" }}>{grand} €</span>
+      </div>
+    </div>
+    <button className="pay-btn" onClick={() => payMethod ? setStep(2) : null}
+      style={{ opacity: payMethod ? 1 : 0.5 }}>
+      🔒 Payer {grand} € — {payMethod === "wave" ? "Wave" : payMethod === "orange" ? "Orange Money" : payMethod === "free" ? "Free Money" : payMethod === "card" ? "Carte" : "Choisir un moyen"}
+    </button>
+    <button className="btn-ghost" style={{ width: "100%", justifyContent: "center", marginTop: ".5rem", border: "none", color: "var(--muted)", fontSize: ".82rem" }} onClick={() => setStep(0)}>← Modifier la livraison</button>
+  </div>
+)}
     </div>
   );
 }
