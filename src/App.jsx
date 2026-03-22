@@ -1303,7 +1303,7 @@ export default function App() {
       case "orders": return <Orders />;
       case "wishlist": return <Wishlist />;
       case "profile": return <Profile />;
-      case "admin": return <Admin />;
+      case "admin": return state.user?.email === "cheickhbadji39@gmail.com" ? <Admin /> : <Catalogue />;
       default: return <Catalogue />;
     }
   };
