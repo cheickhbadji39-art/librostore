@@ -857,7 +857,7 @@ console.log("cart =", state.cart);
   quantity: i.qty || 1,
   price: i.price || 0
 })),
-total: grand,
+total: parseFloat(grand).toFixed(2) + " €",
 paymentMethod: payMethod || "Non précisé"
 }).then(() => console.log("Email envoyé !")).catch(err => console.error("Erreur email:", err));
 }}>Voir mes commandes</button>
