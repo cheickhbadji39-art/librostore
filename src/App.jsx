@@ -1,7 +1,6 @@
 import { useState, useEffect, useReducer, createContext, useContext, useRef, useCallback } from "react";
 import { supabase } from './supabase.js'
 import { sendOrderConfirmation } from './email.js'
-
 // ─── CATALOGUE COMPLET ──────────────────────────────────────────────────────
 const BOOKS_DB = [
   // Littérature africaine & sénégalaise
