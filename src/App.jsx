@@ -1,5 +1,6 @@
 import { useState, useEffect, useReducer, createContext, useContext, useRef, useCallback } from "react";
 import { supabase } from './supabase.js'
+import { sendOrderConfirmation } from './email.js'
 
 // ─── CATALOGUE COMPLET ──────────────────────────────────────────────────────
 const BOOKS_DB = [
@@ -843,7 +844,23 @@ function Checkout() {
           {state.cart.map(i => <div key={i.id} style={{ fontSize: ".88rem", marginBottom: ".2rem" }}>{i.emoji} {i.title} ×{i.qty}</div>)}
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.1rem", marginTop: ".75rem", paddingTop: ".75rem", borderTop: "1px solid var(--border)" }}>Total : {grand} €</div>
         </div>
-        <button className="btn-gold" onClick={() => { dispatch({ type: "PLACE_ORDER", payload: grand }); }}>Voir mes commandes</button>
+        <button className="btn-gold" onClick={() => { 
+  dispatch({ type: "PLACE_ORDER", payload: grand });
+  console.log("payMethod =", payMethod);
+console.log("cart =", state.cart);
+  sendOrderConfirmation({
+  to: state.user.email,
+  name: state.user.name,
+  orderId: `CMD-00${state.orders.length + 1}`,
+  items: state.cart.map(i => ({
+  title: i.title,
+  quantity: i.qty || 1,
+  price: i.price || 0
+})),
+total: grand,
+paymentMethod: payMethod || "Non précisé"
+}).then(() => console.log("Email envoyé !")).catch(err => console.error("Erreur email:", err));
+}}>Voir mes commandes</button>
       </div>
     </div>
   );
